@@ -124,7 +124,7 @@ dist/client/KiroPool-便携版.exe
 
 `dist/` 是本地构建产物，不要提交到 Git。
 
-GitHub Actions 也会自动打包便携版，并发布到仓库右侧的 Releases。打开最新的 `KiroPool 便携版`，下载 `KiroPool-便携版.exe` 即可。
+GitHub Actions 也会自动打包便携版，并发布到仓库右侧的 Releases。打开最新的 `KiroPool 便携版`，下载 `KiroPool-portable.exe` 即可。
 
 ## Docker 部署测试
 
