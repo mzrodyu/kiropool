@@ -127,12 +127,25 @@ const WEB_HTML = `<!doctype html>
       <div class="card wide">
         <div class="section-head">
           <h2>车头凭证</h2>
-          <button id="refreshAccounts">刷新</button>
+          <div class="row-actions">
+            <button id="syncUsage">同步额度</button>
+            <button id="refreshAccounts">刷新</button>
+          </div>
         </div>
         <div class="list" id="accountList">
           <div class="empty">暂无车头凭证</div>
         </div>
         <p class="hint">这里只显示账号状态，不显示完整刷新令牌。</p>
+      </div>
+
+      <div class="card wide">
+        <div class="section-head">
+          <h2>用户管理</h2>
+          <button id="refreshUsers">刷新</button>
+        </div>
+        <div class="list" id="userList">
+          <div class="empty">暂无用户</div>
+        </div>
       </div>
     </section>
   </main>
@@ -590,6 +603,35 @@ function accountStatusText(account) {
   return account.status || 'ready';
 }
 
+function usageCurrent(usage) {
+  if (!usage || typeof usage !== 'object') return null;
+  if (usage.current != null) return Number(usage.current) || 0;
+  const list = usage.usageBreakdownList || usage.usageBreakdowns || [];
+  if (Array.isArray(list) && list.length) {
+    return list.reduce((sum, item) => sum + (Number(item.currentUsage || item.current || 0) || 0), 0);
+  }
+  return null;
+}
+
+function usageLimit(usage) {
+  if (!usage || typeof usage !== 'object') return null;
+  if (usage.limit != null) return Number(usage.limit) || 0;
+  if (usage.max != null) return Number(usage.max) || 0;
+  const list = usage.usageBreakdownList || usage.usageBreakdowns || [];
+  if (Array.isArray(list) && list.length) {
+    return list.reduce((sum, item) => sum + (Number(item.limit || item.max || item.maximum || 0) || 0), 0);
+  }
+  return null;
+}
+
+function usageText(usage) {
+  const current = usageCurrent(usage);
+  const limit = usageLimit(usage);
+  if (current == null && limit == null) return '额度：未同步';
+  if (limit == null) return '已用：' + current;
+  return '额度：' + limit + ' · 已用：' + (current == null ? '-' : current) + ' · 剩余：' + Math.max(0, limit - (current || 0));
+}
+
 function renderAccounts(accounts) {
   if (!accounts || !accounts.length) {
     $('accountList').innerHTML = '<div class="empty">暂无车头凭证</div>';
@@ -602,11 +644,34 @@ function renderAccounts(accounts) {
     return '<div class="list-row">' +
       '<div>' +
         '<div class="list-title">' + escapeHtml(account.name || account.id) + '</div>' +
-        '<div class="list-meta">状态：' + escapeHtml(status) + ' · 更新时间：' + escapeHtml(updated) + '</div>' +
+        '<div class="list-meta">状态：' + escapeHtml(status) + ' · ' + escapeHtml(usageText(account.usage)) + ' · 更新时间：' + escapeHtml(updated) + '</div>' +
       '</div>' +
       '<div class="row-actions">' +
         '<button data-action="toggle-account" data-id="' + escapeHtml(account.id) + '">' + toggleText + '</button>' +
         '<button class="danger" data-action="delete-account" data-id="' + escapeHtml(account.id) + '">删除</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderUsers(users) {
+  if (!users || !users.length) {
+    $('userList').innerHTML = '<div class="empty">暂无用户</div>';
+    return;
+  }
+  $('userList').innerHTML = users.map(user => {
+    const remaining = Math.max(0, Number(user.quota || 0) - Number(user.used || 0));
+    const status = user.enabled === false ? '已停用' : '可用';
+    const toggleText = user.enabled === false ? '启用' : '停用';
+    return '<div class="list-row">' +
+      '<div>' +
+        '<div class="list-title">' + escapeHtml(user.name || user.id) + '</div>' +
+        '<div class="list-meta">密钥：' + escapeHtml(user.key) + ' · 状态：' + status + ' · 额度：' + user.quota + ' · 已用：' + (user.used || 0) + ' · 剩余：' + remaining + '</div>' +
+      '</div>' +
+      '<div class="row-actions">' +
+        '<button data-action="reset-user-key" data-id="' + escapeHtml(user.id) + '">重置密钥</button>' +
+        '<button data-action="toggle-user" data-id="' + escapeHtml(user.id) + '">' + toggleText + '</button>' +
+        '<button class="danger" data-action="delete-user" data-id="' + escapeHtml(user.id) + '">删除</button>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -619,6 +684,7 @@ async function loadAdminState() {
     const data = await getJson('/admin/state', { 'x-admin-token': token });
     localStorage.setItem('kiropoolAdminToken', token);
     renderAccounts(data.data.accounts || []);
+    renderUsers(data.data.users || []);
     setNotice('ownerStatus', '车头凭证列表已刷新', 'ok');
   } catch (err) {
     setNotice('ownerStatus', '刷新失败：' + err.message, 'err');
@@ -679,6 +745,20 @@ $('credentialFile').addEventListener('change', async () => {
 });
 
 $('refreshAccounts').addEventListener('click', loadAdminState);
+$('refreshUsers').addEventListener('click', loadAdminState);
+
+$('syncUsage').addEventListener('click', async () => {
+  const token = adminToken();
+  if (!token) return setNotice('ownerStatus', '请先填写管理员密钥', 'err');
+  try {
+    setNotice('ownerStatus', '正在同步车头额度...');
+    const data = await postJson('/admin/sync-usage', {}, { 'x-admin-token': token });
+    setNotice('ownerStatus', '同步完成：成功 ' + data.synced + '，失败 ' + data.failed, 'ok');
+    await loadAdminState();
+  } catch (err) {
+    setNotice('ownerStatus', '同步失败：' + err.message, 'err');
+  }
+});
 
 $('accountList').addEventListener('click', async event => {
   const button = event.target.closest('button[data-action]');
@@ -701,6 +781,35 @@ $('accountList').addEventListener('click', async event => {
     await loadAdminState();
   } catch (err) {
     setNotice('ownerStatus', '操作失败：' + err.message, 'err');
+  }
+});
+
+$('userList').addEventListener('click', async event => {
+  const button = event.target.closest('button[data-action]');
+  if (!button) return;
+  const token = adminToken();
+  if (!token) return setNotice('createUserStatus', '请先填写管理员密钥', 'err');
+  const id = button.dataset.id;
+  const action = button.dataset.action;
+  try {
+    if (action === 'reset-user-key') {
+      if (!confirm('确定重置这个用户的密钥吗？旧密钥会立刻失效。')) return;
+      const data = await postJson('/admin/users/reset-key', { id }, { 'x-admin-token': token });
+      setNotice('createUserStatus', '新密钥：' + data.user.key, 'ok');
+    }
+    if (action === 'toggle-user') {
+      const enable = button.textContent.trim() === '启用';
+      await postJson('/admin/users/update', { id, enabled: enable }, { 'x-admin-token': token });
+      setNotice('createUserStatus', enable ? '用户已启用' : '用户已停用', 'ok');
+    }
+    if (action === 'delete-user') {
+      if (!confirm('确定删除这个用户吗？')) return;
+      await postJson('/admin/users/delete', { id }, { 'x-admin-token': token });
+      setNotice('createUserStatus', '用户已删除', 'ok');
+    }
+    await loadAdminState();
+  } catch (err) {
+    setNotice('createUserStatus', '操作失败：' + err.message, 'err');
   }
 });
 
@@ -813,6 +922,7 @@ $('createUser').addEventListener('click', async () => {
     const data = await postJson('/admin/users', body, { 'x-admin-token': adminToken });
     localStorage.setItem('kiropoolAdminToken', adminToken);
     setNotice('createUserStatus', '用户已创建，密钥：' + data.user.key, 'ok');
+    await loadAdminState();
   } catch (err) {
     setNotice('createUserStatus', '创建失败：' + err.message, 'err');
   }
@@ -1178,6 +1288,42 @@ async function route(req, res) {
       db.users.unshift(user);
       saveDb(db);
       return sendJson(res, 200, { ok: true, user });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/admin/users/update') {
+      const body = await readBody(req);
+      const user = db.users.find(u => u.id === body.id);
+      if (!user) return sendJson(res, 404, { ok: false, error: '用户不存在' });
+      if (body.name != null && String(body.name).trim()) user.name = String(body.name).trim();
+      if (body.quota != null) user.quota = Number(body.quota || 0);
+      if (body.enabled != null) user.enabled = body.enabled !== false;
+      user.updatedAt = nowIso();
+      saveDb(db);
+      return sendJson(res, 200, { ok: true, user });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/admin/users/reset-key') {
+      const body = await readBody(req);
+      const user = db.users.find(u => u.id === body.id);
+      if (!user) return sendJson(res, 404, { ok: false, error: '用户不存在' });
+      user.key = `kp_${crypto.randomBytes(18).toString('base64url')}`;
+      user.updatedAt = nowIso();
+      db.events.unshift({ id: uid('evt_'), type: 'user.key_reset', userId: user.id, at: nowIso() });
+      saveDb(db);
+      return sendJson(res, 200, { ok: true, user });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/admin/users/delete') {
+      const body = await readBody(req);
+      const activeLease = db.leases.find(l => l.userId === body.id && l.status === 'active');
+      if (activeLease) return sendJson(res, 409, { ok: false, error: '用户正在租用中，不能删除' });
+      const index = db.users.findIndex(u => u.id === body.id);
+      if (index < 0) return sendJson(res, 404, { ok: false, error: '用户不存在' });
+      const user = db.users[index];
+      db.users.splice(index, 1);
+      db.events.unshift({ id: uid('evt_'), type: 'user.deleted', userId: user.id, at: nowIso() });
+      saveDb(db);
+      return sendJson(res, 200, { ok: true });
     }
 
     if (req.method === 'POST' && url.pathname === '/admin/sync-usage') {

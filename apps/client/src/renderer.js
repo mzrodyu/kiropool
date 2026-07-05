@@ -30,6 +30,7 @@ async function loadState() {
     $('serverUrl').value = res.data.serverUrl || 'http://127.0.0.1:47831';
     $('userKey').value = res.data.userKey || '';
     if (res.data.lease) $('lease').textContent = res.data.lease.status || '-';
+    if (res.data.kiroExePath) setStatus('Kiro 路径已设置：' + res.data.kiroExePath);
   }
 }
 
@@ -112,9 +113,23 @@ async function importCredential() {
   setStatus('网页凭证已导入' + exeText);
 }
 
+async function pickKiroExe() {
+  const res = await api.pickKiroExe();
+  if (res.canceled) {
+    setStatus('已取消选择 Kiro 路径');
+    return;
+  }
+  if (!res.ok) {
+    setStatus('选择失败：' + res.error);
+    return;
+  }
+  setStatus('Kiro 路径已设置：' + res.exe);
+}
+
 $('btnLogin').addEventListener('click', login);
 $('btnStart').addEventListener('click', startLease);
 $('btnStop').addEventListener('click', stopLease);
 $('btnImportCredential').addEventListener('click', importCredential);
+$('btnPickKiro').addEventListener('click', pickKiroExe);
 
 loadState();

@@ -50,12 +50,8 @@ body {
 .logo {
   width: 48px;
   height: 48px;
-  display: grid;
-  place-items: center;
   border-radius: 14px;
-  background: #eef6ff;
-  color: var(--accent);
-  font-weight: 800;
+  display: block;
 }
 
 h1, h2, p {

@@ -10,7 +10,7 @@
   <main class="shell">
     <section class="panel">
       <div class="brand">
-        <div class="logo">KP</div>
+        <img class="logo" src="./icon.png" alt="KiroPool" />
         <div>
           <h1>KiroPool</h1>
           <p>领取临时 Kiro IDE 登录凭证，按拼车额度使用。</p>
@@ -30,6 +30,7 @@
         <button id="btnLogin">检查额度</button>
         <button id="btnStart" class="primary">启动 Kiro</button>
         <button id="btnStop" class="danger">停止并退出登录</button>
+        <button id="btnPickKiro">选择 Kiro 路径</button>
       </div>
 
       <div class="status" id="status">未连接</div>
@@ -37,7 +38,7 @@
       <div class="divider"></div>
 
       <h2>导入网页凭证</h2>
-      <p class="hint">适合从网页下载了受限凭证的用户。选择 JSON 后会自动写入本机 Kiro 登录缓存，并尝试启动 Kiro。</p>
+      <p class="hint">适合从网页下载了拼车用户凭证的用户。选择 JSON 后会自动写入本机 Kiro 登录缓存，并尝试启动 Kiro。</p>
       <div class="actions">
         <button id="btnImportCredential" class="primary">选择凭证并启动</button>
       </div>

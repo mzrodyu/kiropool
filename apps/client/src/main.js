@@ -1,9 +1,11 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn, execFileSync } = require('child_process');
 
 const APP_NAME = 'KiroPool';
+const REPO_URL = 'https://github.com/mzrodyu/kiropool';
+const ICON_FILE = path.join(__dirname, 'icon.png');
 const KIRO_CACHE_DIR = path.join(app.getPath('home'), '.aws', 'sso', 'cache');
 const KIRO_AUTH_FILE = path.join(KIRO_CACHE_DIR, 'kiro-auth-token.json');
 const CLIENT_STATE_FILE = path.join(app.getPath('userData'), 'client-state.json');
@@ -74,7 +76,21 @@ function resolveKiroExecutable(explicitPath) {
     path.join(process.env.LOCALAPPDATA || '', 'Programs', 'kiro', 'Kiro.exe'),
     path.join(process.env.PROGRAMFILES || '', 'Kiro', 'Kiro.exe')
   ];
-  return candidates.find(item => item && fs.existsSync(item)) || '';
+  const direct = candidates.find(item => item && fs.existsSync(item));
+  if (direct) return direct;
+  for (const root of [
+    path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Kiro'),
+    path.join(process.env.LOCALAPPDATA || '', 'Programs', 'kiro')
+  ]) {
+    try {
+      const found = fs.readdirSync(root, { withFileTypes: true })
+        .filter(item => item.isDirectory())
+        .map(item => path.join(root, item.name, 'Kiro.exe'))
+        .find(item => fs.existsSync(item));
+      if (found) return found;
+    } catch (err) {}
+  }
+  return '';
 }
 
 function launchKiro(exePath) {
@@ -150,7 +166,20 @@ function createChineseMenu() {
     {
       label: '帮助',
       submenu: [
-        { label: '关于 KiroPool', click: () => dialog.showMessageBox(mainWindow, { type: 'info', title: '关于 KiroPool', message: 'KiroPool', detail: 'Kiro IDE 拼车额度管理客户端' }) }
+        {
+          label: '关于 KiroPool',
+          click: () => dialog.showMessageBox(mainWindow, {
+            type: 'info',
+            title: '关于 KiroPool',
+            message: 'KiroPool',
+            detail: `作者：Catie / mzrodyu\n仓库：${REPO_URL}\n\nKiro IDE 拼车额度管理客户端`,
+            buttons: ['打开仓库', '关闭'],
+            defaultId: 0,
+            cancelId: 1
+          }).then(result => {
+            if (result.response === 0) shell.openExternal(REPO_URL);
+          })
+        }
       ]
     }
   ];
@@ -164,6 +193,7 @@ function createWindow() {
     minWidth: 760,
     minHeight: 500,
     title: APP_NAME,
+    icon: ICON_FILE,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -195,6 +225,8 @@ ipcMain.handle('kiro:pickExe', async () => {
     filters: [{ name: 'Kiro.exe', extensions: ['exe'] }]
   });
   if (res.canceled) return { ok: false, canceled: true };
+  const state = readState();
+  writeState({ ...state, kiroExePath: res.filePaths[0] });
   return { ok: true, exe: res.filePaths[0] };
 });
 
