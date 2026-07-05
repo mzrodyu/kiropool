@@ -60,7 +60,7 @@ const WEB_HTML = `<!doctype html>
         </label>
         <div class="actions">
           <button id="checkQuota">检查额度</button>
-          <button id="downloadCredential" class="primary">下载受限凭证</button>
+          <button id="downloadCredential" class="primary">下载拼车用户凭证</button>
         </div>
         <div class="notice" id="userStatus">等待操作</div>
       </div>
@@ -77,7 +77,7 @@ const WEB_HTML = `<!doctype html>
           <button id="heartbeat">同步用量</button>
           <button id="stopLease" class="danger">停止会话</button>
         </div>
-        <p class="hint">网页下载的凭证只包含临时访问令牌。请把下载的 JSON 导入到你的 Kiro 登录凭证位置或配套工具中。</p>
+        <p class="hint">网页下载的是拼车用户凭证，只包含临时访问令牌。请把下载的 JSON 导入到配套工具中。</p>
       </div>
     </section>
 
@@ -122,6 +122,17 @@ const WEB_HTML = `<!doctype html>
           <button id="createUser">创建用户</button>
         </div>
         <div class="notice" id="createUserStatus">创建后把用户密钥发给乘客。</div>
+      </div>
+
+      <div class="card wide">
+        <div class="section-head">
+          <h2>车头凭证</h2>
+          <button id="refreshAccounts">刷新</button>
+        </div>
+        <div class="list" id="accountList">
+          <div class="empty">暂无车头凭证</div>
+        </div>
+        <p class="hint">这里只显示账号状态，不显示完整刷新令牌。</p>
       </div>
     </section>
   </main>
@@ -264,6 +275,65 @@ h2 {
   background: var(--card);
   padding: 22px;
   box-shadow: 0 14px 34px rgba(17, 24, 39, 0.08);
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.section-head h2 {
+  margin-bottom: 0;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px;
+}
+
+.list-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.list-meta {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.empty {
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  color: var(--muted);
+  padding: 18px;
+  background: #fff;
 }
 
 label {
@@ -469,8 +539,8 @@ async function postJson(pathname, body, headers) {
   return data;
 }
 
-async function getJson(pathname) {
-  const res = await fetch(pathname, { headers: { accept: 'application/json' } });
+async function getJson(pathname, headers) {
+  const res = await fetch(pathname, { headers: Object.assign({ accept: 'application/json' }, headers || {}) });
   const data = await res.json().catch(() => null);
   if (!res.ok || !data || data.ok === false) {
     throw new Error(data && data.error ? data.error : '请求失败');
@@ -498,6 +568,61 @@ function parseCredentials(raw) {
   if (!raw.trim()) throw new Error('请粘贴 Kiro JSON 凭证');
   const parsed = JSON.parse(raw);
   return parsed.credentials && typeof parsed.credentials === 'object' ? parsed.credentials : parsed;
+}
+
+function escapeHtml(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[char]);
+}
+
+function adminToken() {
+  return $('adminToken').value.trim();
+}
+
+function accountStatusText(account) {
+  if (account.activeLeaseId) return '租用中';
+  if (account.enabled === false) return '已停用';
+  return account.status || 'ready';
+}
+
+function renderAccounts(accounts) {
+  if (!accounts || !accounts.length) {
+    $('accountList').innerHTML = '<div class="empty">暂无车头凭证</div>';
+    return;
+  }
+  $('accountList').innerHTML = accounts.map(account => {
+    const status = accountStatusText(account);
+    const updated = account.updatedAt ? new Date(account.updatedAt).toLocaleString() : '-';
+    const toggleText = account.enabled === false ? '启用' : '停用';
+    return '<div class="list-row">' +
+      '<div>' +
+        '<div class="list-title">' + escapeHtml(account.name || account.id) + '</div>' +
+        '<div class="list-meta">状态：' + escapeHtml(status) + ' · 更新时间：' + escapeHtml(updated) + '</div>' +
+      '</div>' +
+      '<div class="row-actions">' +
+        '<button data-action="toggle-account" data-id="' + escapeHtml(account.id) + '">' + toggleText + '</button>' +
+        '<button class="danger" data-action="delete-account" data-id="' + escapeHtml(account.id) + '">删除</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+async function loadAdminState() {
+  const token = adminToken();
+  if (!token) return setNotice('ownerStatus', '请先填写管理员密钥', 'err');
+  try {
+    const data = await getJson('/admin/state', { 'x-admin-token': token });
+    localStorage.setItem('kiropoolAdminToken', token);
+    renderAccounts(data.data.accounts || []);
+    setNotice('ownerStatus', '车头凭证列表已刷新', 'ok');
+  } catch (err) {
+    setNotice('ownerStatus', '刷新失败：' + err.message, 'err');
+  }
 }
 
 document.querySelectorAll('.tab').forEach(button => {
@@ -553,6 +678,32 @@ $('credentialFile').addEventListener('change', async () => {
   }
 });
 
+$('refreshAccounts').addEventListener('click', loadAdminState);
+
+$('accountList').addEventListener('click', async event => {
+  const button = event.target.closest('button[data-action]');
+  if (!button) return;
+  const token = adminToken();
+  if (!token) return setNotice('ownerStatus', '请先填写管理员密钥', 'err');
+  const id = button.dataset.id;
+  const action = button.dataset.action;
+  try {
+    if (action === 'toggle-account') {
+      const enable = button.textContent.trim() === '启用';
+      await postJson('/admin/accounts/update', { id, enabled: enable }, { 'x-admin-token': token });
+      setNotice('ownerStatus', enable ? '车头凭证已启用' : '车头凭证已停用', 'ok');
+    }
+    if (action === 'delete-account') {
+      if (!confirm('确定删除这个车头凭证吗？')) return;
+      await postJson('/admin/accounts/delete', { id }, { 'x-admin-token': token });
+      setNotice('ownerStatus', '车头凭证已删除', 'ok');
+    }
+    await loadAdminState();
+  } catch (err) {
+    setNotice('ownerStatus', '操作失败：' + err.message, 'err');
+  }
+});
+
 async function loadSetupState() {
   try {
     const data = await getJson('/api/setup');
@@ -587,7 +738,7 @@ $('downloadCredential').addEventListener('click', async () => {
   const key = userKey();
   if (!key) return setNotice('userStatus', '请填写用户密钥', 'err');
   try {
-    setNotice('userStatus', '正在生成受限凭证...');
+    setNotice('userStatus', '正在生成拼车用户凭证...');
     const data = await postJson('/api/lease/start', { userKey: key });
     state.leaseId = data.lease.id;
     state.userKey = key;
@@ -595,7 +746,7 @@ $('downloadCredential').addEventListener('click', async () => {
     localStorage.setItem('kiropoolUserKey', key);
     setMetrics(data);
     saveBlob('kiro-auth-token.json', data.credentials);
-    setNotice('userStatus', '受限凭证已下载。当前会话：' + data.lease.accountName, 'ok');
+    setNotice('userStatus', '拼车用户凭证已下载。当前会话：' + data.lease.accountName, 'ok');
   } catch (err) {
     setNotice('userStatus', '下载失败：' + err.message, 'err');
   }
@@ -643,6 +794,7 @@ $('uploadCredential').addEventListener('click', async () => {
     localStorage.setItem('kiropoolAdminToken', adminToken);
     $('credentialJson').value = '';
     setNotice('ownerStatus', '车头凭证已上传：' + data.account.name, 'ok');
+    await loadAdminState();
   } catch (err) {
     setNotice('ownerStatus', '上传失败：' + err.message, 'err');
   }
@@ -983,6 +1135,32 @@ async function route(req, res) {
       db.accounts.unshift(account);
       saveDb(db);
       return sendJson(res, 200, { ok: true, account: publicDb({ ...db, accounts: [account], users: [], leases: [] }).accounts[0] });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/admin/accounts/update') {
+      const body = await readBody(req);
+      const account = db.accounts.find(a => a.id === body.id);
+      if (!account) return sendJson(res, 404, { ok: false, error: '车头凭证不存在' });
+      if (body.enabled != null) account.enabled = body.enabled !== false;
+      if (body.name != null && String(body.name).trim()) account.name = String(body.name).trim();
+      account.updatedAt = nowIso();
+      saveDb(db);
+      return sendJson(res, 200, {
+        ok: true,
+        account: publicDb({ ...db, accounts: [account], users: [], leases: [] }).accounts[0]
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/admin/accounts/delete') {
+      const body = await readBody(req);
+      const index = db.accounts.findIndex(a => a.id === body.id);
+      if (index < 0) return sendJson(res, 404, { ok: false, error: '车头凭证不存在' });
+      const account = db.accounts[index];
+      if (account.activeLeaseId) return sendJson(res, 409, { ok: false, error: '车头正在租用中，不能删除' });
+      db.accounts.splice(index, 1);
+      db.events.unshift({ id: uid('evt_'), type: 'account.deleted', accountId: account.id, at: nowIso() });
+      saveDb(db);
+      return sendJson(res, 200, { ok: true });
     }
 
     if (req.method === 'POST' && url.pathname === '/admin/users') {
