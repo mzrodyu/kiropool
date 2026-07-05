@@ -49,10 +49,10 @@ jobs:
 
             Windows 下载 `KiroPool-portable.exe`，输入用户密钥后会自动从云端领取凭证并启动 Kiro。
           make_latest: true
+          overwrite_files: true
           files: dist/client/KiroPool-portable.exe
 
   client-macos:
-    needs: [client-windows]
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -68,4 +68,5 @@ jobs:
         with:
           tag_name: portable-latest
           name: KiroPool 客户端
+          overwrite_files: true
           files: dist/client/KiroPool-mac-*.dmg
