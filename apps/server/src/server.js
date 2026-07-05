@@ -1223,10 +1223,32 @@ function finishLease(db, lease, reason, usageNow) {
   return lease;
 }
 
+function cleanupLeases(db) {
+  let changed = false;
+  const now = Date.now();
+  for (const lease of db.leases) {
+    if (lease.status === 'active' && lease.expiresAt && Date.parse(lease.expiresAt) <= now) {
+      finishLease(db, lease, 'expired', lease.lastUsed);
+      changed = true;
+    }
+  }
+  for (const account of db.accounts) {
+    if (!account.activeLeaseId) continue;
+    const lease = db.leases.find(item => item.id === account.activeLeaseId);
+    if (!lease || lease.status !== 'active') {
+      account.activeLeaseId = '';
+      account.updatedAt = nowIso();
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 async function route(req, res) {
   if (req.method === 'OPTIONS') return sendJson(res, 200, { ok: true });
   const url = new URL(req.url, `http://${req.headers.host}`);
   const db = loadDb();
+  if (cleanupLeases(db)) saveDb(db);
 
   try {
     if (req.method === 'GET' && url.pathname === '/') {
