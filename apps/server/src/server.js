@@ -24,7 +24,7 @@ const WEB_HTML = `<!doctype html>
       <div>
         <p class="eyebrow">KiroPool</p>
         <h1>Kiro 拼车凭证中心</h1>
-        <p class="lead">车头上传完整凭证，用户下载不含刷新令牌的临时登录凭证。</p>
+        <p class="lead">车头上传完整凭证，用户拿密钥在客户端自动领取临时登录凭证。</p>
       </div>
       <div class="server-pill" id="serverPill">服务端</div>
     </section>
@@ -53,14 +53,14 @@ const WEB_HTML = `<!doctype html>
 
     <section class="grid active hidden" id="userPanel">
       <div class="card">
-        <h2>下载临时凭证</h2>
+        <h2>用户密钥</h2>
         <label>
           <span>用户密钥</span>
           <input id="userKey" type="password" spellcheck="false" placeholder="kp_xxx" />
         </label>
         <div class="actions">
           <button id="checkQuota">检查额度</button>
-          <button id="downloadCredential" class="primary">下载拼车用户凭证</button>
+          <button id="downloadCredential" class="primary">备用下载 JSON</button>
         </div>
         <div class="notice" id="userStatus">等待操作</div>
       </div>
@@ -77,7 +77,7 @@ const WEB_HTML = `<!doctype html>
           <button id="heartbeat">同步用量</button>
           <button id="stopLease" class="danger">停止会话</button>
         </div>
-        <p class="hint">网页下载的是拼车用户凭证，只包含临时访问令牌。请把下载的 JSON 导入到配套工具中。</p>
+        <p class="hint">正常给用户发密钥就行。客户端会自动从云端领取临时凭证；这里下载 JSON 只是备用导入方案。</p>
       </div>
     </section>
 
@@ -874,7 +874,7 @@ $('downloadCredential').addEventListener('click', async () => {
   const key = userKey();
   if (!key) return setNotice('userStatus', '请填写用户密钥', 'err');
   try {
-    setNotice('userStatus', '正在生成拼车用户凭证...');
+    setNotice('userStatus', '正在生成备用 JSON...');
     const data = await postJson('/api/lease/start', { userKey: key });
     state.leaseId = data.lease.id;
     state.userKey = key;
@@ -882,9 +882,9 @@ $('downloadCredential').addEventListener('click', async () => {
     localStorage.setItem('kiropoolUserKey', key);
     setMetrics(data);
     saveBlob('kiro-auth-token.json', data.credentials);
-    setNotice('userStatus', '拼车用户凭证已下载。当前会话：' + data.lease.accountName, 'ok');
+    setNotice('userStatus', '备用 JSON 已下载。当前会话：' + data.lease.accountName, 'ok');
   } catch (err) {
-    setNotice('userStatus', '下载失败：' + err.message, 'err');
+    setNotice('userStatus', '备用下载失败：' + err.message, 'err');
   }
 });
 

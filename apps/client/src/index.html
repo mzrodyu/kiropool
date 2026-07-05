@@ -25,13 +25,13 @@
         <img class="logo" src="./icon.png" alt="KiroPool" />
         <div>
           <h1>KiroPool</h1>
-          <p>领取临时 Kiro IDE 登录凭证，按拼车额度使用。</p>
+          <p>输入用户密钥，自动从云端领取凭证并启动 Kiro。</p>
         </div>
       </div>
 
       <label>
         <span>服务器地址</span>
-        <input id="serverUrl" spellcheck="false" value="http://127.0.0.1:47831" />
+        <input id="serverUrl" spellcheck="false" value="https://kirotool.mzrodyu.icu" />
       </label>
       <label>
         <span>用户密钥</span>
@@ -49,8 +49,8 @@
 
       <div class="divider"></div>
 
-      <h2>导入网页凭证</h2>
-      <p class="hint">适合从网页下载了拼车用户凭证的用户。选择 JSON 后会自动写入本机 Kiro 登录缓存，并尝试启动 Kiro。</p>
+      <h2>备用导入</h2>
+      <p class="hint">一般不用这里。只有网页下载了 JSON 备用凭证时，才需要选择文件导入。</p>
       <div class="actions">
         <button id="btnImportCredential" class="primary">选择凭证并启动</button>
       </div>

@@ -1,6 +1,7 @@
 const api = window.kiropool;
 
 let heartbeatTimer = null;
+const DEFAULT_SERVER_URL = 'https://kirotool.mzrodyu.icu';
 
 const $ = id => document.getElementById(id);
 
@@ -27,7 +28,7 @@ function formPayload() {
 async function loadState() {
   const res = await api.getState();
   if (res.ok && res.data) {
-    $('serverUrl').value = res.data.serverUrl || 'http://127.0.0.1:47831';
+    $('serverUrl').value = res.data.serverUrl || DEFAULT_SERVER_URL;
     $('userKey').value = res.data.userKey || '';
     if (res.data.lease) $('lease').textContent = res.data.lease.status || '-';
     if (res.data.kiroExePath) setStatus('Kiro 路径已设置：' + res.data.kiroExePath);
@@ -99,7 +100,7 @@ async function stopLease() {
 }
 
 async function importCredential() {
-  setStatus('请选择网页下载的 JSON 凭证...');
+  setStatus('请选择备用 JSON 凭证...');
   const res = await api.importCredential({});
   if (res.canceled) {
     setStatus('已取消导入');
@@ -110,7 +111,7 @@ async function importCredential() {
     return;
   }
   const exeText = res.data.exe ? `，已启动 ${res.data.exe}` : '，凭证已写入但未找到 Kiro.exe';
-  setStatus('网页凭证已导入' + exeText);
+  setStatus('备用凭证已导入' + exeText);
 }
 
 async function pickKiroExe() {

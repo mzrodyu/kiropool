@@ -5,6 +5,7 @@ const { spawn, execFileSync } = require('child_process');
 
 const APP_NAME = 'KiroPool';
 const REPO_URL = 'https://github.com/mzrodyu/kiropool';
+const DEFAULT_SERVER_URL = 'https://kirotool.mzrodyu.icu';
 const ICON_FILE = path.join(__dirname, 'icon.png');
 const KIRO_CACHE_DIR = path.join(app.getPath('home'), '.aws', 'sso', 'cache');
 const KIRO_AUTH_FILE = path.join(KIRO_CACHE_DIR, 'kiro-auth-token.json');
@@ -16,7 +17,7 @@ function readState() {
   try {
     if (fs.existsSync(CLIENT_STATE_FILE)) return JSON.parse(fs.readFileSync(CLIENT_STATE_FILE, 'utf8'));
   } catch (err) {}
-  return { serverUrl: 'http://127.0.0.1:47831', userKey: '', lease: null };
+  return { serverUrl: DEFAULT_SERVER_URL, userKey: '', lease: null };
 }
 
 function writeState(state) {
@@ -280,7 +281,7 @@ ipcMain.handle('credential:import', async (event, payload = {}) => {
     let filePath = payload.filePath || '';
     if (!filePath) {
       const res = await dialog.showOpenDialog(mainWindow, {
-        title: '选择网页下载的凭证',
+        title: '选择备用 JSON 凭证',
         properties: ['openFile'],
         filters: [{ name: 'JSON 凭证', extensions: ['json'] }]
       });
