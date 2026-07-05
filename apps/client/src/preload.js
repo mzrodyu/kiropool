@@ -8,5 +8,9 @@ contextBridge.exposeInMainWorld('kiropool', {
   heartbeat: () => ipcRenderer.invoke('lease:heartbeat'),
   stopLease: () => ipcRenderer.invoke('lease:stop'),
   importCredential: (payload) => ipcRenderer.invoke('credential:import', payload),
-  pickKiroExe: () => ipcRenderer.invoke('kiro:pickExe')
+  pickKiroExe: () => ipcRenderer.invoke('kiro:pickExe'),
+  minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
+  maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
+  closeWindow: () => ipcRenderer.invoke('window:close'),
+  showAbout: () => ipcRenderer.invoke('app:about')
 });

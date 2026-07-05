@@ -131,5 +131,9 @@ $('btnStart').addEventListener('click', startLease);
 $('btnStop').addEventListener('click', stopLease);
 $('btnImportCredential').addEventListener('click', importCredential);
 $('btnPickKiro').addEventListener('click', pickKiroExe);
+$('winClose').addEventListener('click', () => api.closeWindow());
+$('winMinimize').addEventListener('click', () => api.minimizeWindow());
+$('winMaximize').addEventListener('click', () => api.maximizeWindow());
+$('btnAbout').addEventListener('click', () => api.showAbout());
 
 loadState();

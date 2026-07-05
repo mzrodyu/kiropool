@@ -8,7 +8,8 @@
   "scripts": {
     "start": "electron .",
     "check": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js",
-    "dist": "electron-builder --win portable --config.npmRebuild=false --config.nodeGypRebuild=false --config.buildDependenciesFromSource=false"
+    "dist": "electron-builder --win portable --config.npmRebuild=false --config.nodeGypRebuild=false --config.buildDependenciesFromSource=false",
+    "dist:mac": "electron-builder --mac dmg --x64 --arm64 --config.npmRebuild=false --config.nodeGypRebuild=false --config.buildDependenciesFromSource=false"
   },
   "build": {
     "appId": "com.kiropool.client",
@@ -30,6 +31,19 @@
           ]
         }
       ]
+    },
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "KiroPool-mac-${arch}.${ext}"
     },
     "portable": {
       "artifactName": "KiroPool-便携版.exe"

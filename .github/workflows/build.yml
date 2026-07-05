@@ -26,7 +26,7 @@ jobs:
           push: true
           tags: ghcr.io/mzrodyu/kiropool-server:latest
 
-  client:
+  client-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,8 +44,33 @@ jobs:
           name: KiroPool-portable-windows
           path: dist/client/KiroPool-portable.exe
           if-no-files-found: error
+
+  client-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm --prefix apps/client run dist:mac --workspaces=false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KiroPool-macos
+          path: dist/client/KiroPool-mac-*.dmg
+          if-no-files-found: error
+
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: [client-windows, client-macos]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
       - uses: actions/github-script@v7
-        if: github.ref == 'refs/heads/main'
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -58,13 +83,15 @@ jobs:
               if (error.status !== 404) throw error;
             }
       - uses: softprops/action-gh-release@v2
-        if: github.ref == 'refs/heads/main'
         with:
           tag_name: portable-latest
-          name: KiroPool 便携版
+          name: KiroPool 客户端
           body: |
-            自动构建的 Windows 便携版。
+            自动构建的桌面客户端。
 
-            下载 `KiroPool-portable.exe`，打开后可导入网页下载的拼车用户凭证并启动 Kiro。
+            Windows 下载 `KiroPool-portable.exe`。
+            macOS 按芯片下载 `KiroPool-mac-x64.dmg` 或 `KiroPool-mac-arm64.dmg`。
           make_latest: true
-          files: dist/client/KiroPool-portable.exe
+          files: |
+            release-assets/KiroPool-portable-windows/KiroPool-portable.exe
+            release-assets/KiroPool-macos/KiroPool-mac-*.dmg

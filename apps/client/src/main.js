@@ -62,6 +62,13 @@ function clearKiroAuth() {
 
 function resolveKiroExecutable(explicitPath) {
   if (explicitPath && fs.existsSync(explicitPath)) return explicitPath;
+  if (process.platform === 'darwin') {
+    const candidates = [
+      '/Applications/Kiro.app',
+      path.join(app.getPath('home'), 'Applications', 'Kiro.app')
+    ];
+    return candidates.find(item => fs.existsSync(item)) || '';
+  }
   try {
     const out = execFileSync('powershell.exe', [
       '-NoProfile',
@@ -96,9 +103,14 @@ function resolveKiroExecutable(explicitPath) {
 function launchKiro(exePath) {
   const exe = resolveKiroExecutable(exePath);
   if (!exe) {
-    const err = new Error('未找到 Kiro.exe');
+    const err = new Error(process.platform === 'darwin' ? '未找到 Kiro.app' : '未找到 Kiro.exe');
     err.code = 'NO_KIRO_EXE';
     throw err;
+  }
+  if (process.platform === 'darwin') {
+    const child = spawn('open', [exe], { detached: true, stdio: 'ignore' });
+    child.unref();
+    return exe;
   }
   const child = spawn(exe, [], { detached: true, stdio: 'ignore', windowsHide: false });
   child.unref();
@@ -188,12 +200,17 @@ function createChineseMenu() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 920,
-    height: 560,
-    minWidth: 760,
-    minHeight: 500,
+    width: 940,
+    height: 620,
+    minWidth: 780,
+    minHeight: 560,
     title: APP_NAME,
     icon: ICON_FILE,
+    frame: false,
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
+    trafficLightPosition: { x: 18, y: 17 },
+    backgroundColor: '#f5f5f7',
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -204,7 +221,8 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  createChineseMenu();
+  if (process.platform === 'darwin') createChineseMenu();
+  else Menu.setApplicationMenu(null);
   createWindow();
 });
 app.on('window-all-closed', () => {
@@ -220,15 +238,41 @@ ipcMain.handle('state:set', (event, patch) => {
 
 ipcMain.handle('kiro:pickExe', async () => {
   const res = await dialog.showOpenDialog(mainWindow, {
-    title: '选择 Kiro.exe',
-    properties: ['openFile'],
-    filters: [{ name: 'Kiro.exe', extensions: ['exe'] }]
+    title: process.platform === 'darwin' ? '选择 Kiro.app' : '选择 Kiro.exe',
+    properties: process.platform === 'darwin' ? ['openFile', 'openDirectory'] : ['openFile'],
+    filters: process.platform === 'darwin' ? [{ name: 'Kiro.app', extensions: ['app'] }] : [{ name: 'Kiro.exe', extensions: ['exe'] }]
   });
   if (res.canceled) return { ok: false, canceled: true };
   const state = readState();
   writeState({ ...state, kiroExePath: res.filePaths[0] });
   return { ok: true, exe: res.filePaths[0] };
 });
+
+ipcMain.handle('window:minimize', () => {
+  if (mainWindow) mainWindow.minimize();
+});
+
+ipcMain.handle('window:maximize', () => {
+  if (!mainWindow) return;
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
+});
+
+ipcMain.handle('window:close', () => {
+  if (mainWindow) mainWindow.close();
+});
+
+ipcMain.handle('app:about', () => dialog.showMessageBox(mainWindow, {
+  type: 'info',
+  title: '关于 KiroPool',
+  message: 'KiroPool',
+  detail: `作者：Catie / mzrodyu\n仓库：${REPO_URL}\n\nKiro IDE 拼车额度管理客户端`,
+  buttons: ['打开仓库', '关闭'],
+  defaultId: 0,
+  cancelId: 1
+}).then(result => {
+  if (result.response === 0) shell.openExternal(REPO_URL);
+}));
 
 ipcMain.handle('credential:import', async (event, payload = {}) => {
   try {
