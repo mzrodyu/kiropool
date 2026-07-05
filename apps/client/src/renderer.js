@@ -18,6 +18,15 @@ function setMetrics(data) {
   if (data.lease) $('lease').textContent = data.lease.status === 'active' ? data.lease.accountName : data.lease.status;
 }
 
+function friendlyError(message) {
+  if (message === '暂无空闲 Kiro 账号') {
+    return '车头没有空闲 Kiro 账号。请在网页「车头管理」上传并启用车头凭证，或停止正在租用的会话。';
+  }
+  if (message === '额度已用完') return '用户额度已用完，请让车头给这个用户加额度。';
+  if (message === '用户 key 无效') return '用户密钥无效，请检查是否复制错了。';
+  return message;
+}
+
 function formPayload() {
   return {
     serverUrl: $('serverUrl').value.trim(),
@@ -44,7 +53,7 @@ async function login() {
   setStatus('正在检查额度...');
   const res = await api.login(payload);
   if (!res.ok) {
-    setStatus('登录失败：' + res.error);
+    setStatus('检查失败：' + friendlyError(res.error));
     return;
   }
   setMetrics(res.data);
@@ -56,7 +65,7 @@ function startHeartbeat() {
   heartbeatTimer = setInterval(async () => {
     const res = await api.heartbeat();
     if (!res.ok) {
-      setStatus('心跳失败：' + res.error);
+      setStatus('心跳失败：' + friendlyError(res.error));
       return;
     }
     setMetrics(res.data);
@@ -77,7 +86,7 @@ async function startLease() {
   setStatus('正在领取临时凭证并启动 Kiro...');
   const res = await api.startLease(payload);
   if (!res.ok) {
-    setStatus('启动失败：' + res.error);
+    setStatus('启动失败：' + friendlyError(res.error));
     return;
   }
   setMetrics(res.data);
@@ -90,7 +99,7 @@ async function stopLease() {
   setStatus('正在停止会话...');
   const res = await api.stopLease();
   if (!res.ok) {
-    setStatus('停止失败：' + res.error);
+    setStatus('停止失败：' + friendlyError(res.error));
     return;
   }
   if (heartbeatTimer) clearInterval(heartbeatTimer);
