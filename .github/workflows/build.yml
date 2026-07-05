@@ -70,17 +70,19 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: release-assets
-      - uses: ncipollo/release-action@v1
-        with:
-          tag: portable-latest
-          name: KiroPool 客户端
-          body: |
-            自动构建的桌面客户端。
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'EOF'
+          自动构建的桌面客户端。
 
-            Windows 下载 `KiroPool-portable.exe`，输入用户密钥后会自动从云端领取凭证并启动 Kiro。
-            macOS 按芯片下载 `KiroPool-mac-x64.dmg` 或 `KiroPool-mac-arm64.dmg`。
-          artifacts: release-assets/KiroPool-portable-windows/KiroPool-portable.exe,release-assets/KiroPool-macos/KiroPool-mac-*.dmg
-          allowUpdates: true
-          removeArtifacts: true
-          replacesArtifacts: true
-          makeLatest: true
+          Windows 下载 `KiroPool-portable.exe`，输入用户密钥后会自动从云端领取凭证并启动 Kiro。
+          macOS 按芯片下载 `KiroPool-mac-x64.dmg` 或 `KiroPool-mac-arm64.dmg`。
+          EOF
+          gh release view portable-latest >/dev/null 2>&1 || gh release create portable-latest --target "$GITHUB_SHA" --title "KiroPool 客户端" --notes-file notes.md
+          gh release edit portable-latest --title "KiroPool 客户端" --notes-file notes.md --latest
+          gh release upload portable-latest \
+            release-assets/KiroPool-portable-windows/KiroPool-portable.exe \
+            release-assets/KiroPool-macos/KiroPool-mac-*.dmg \
+            --clobber
