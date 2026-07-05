@@ -703,21 +703,38 @@ async function refreshUserState(options = {}) {
   const key = userKey();
   if (!key) return;
   try {
-    let data = null;
-    if (state.leaseId) {
-      data = await postJson('/api/lease/heartbeat', { userKey: key, leaseId: state.leaseId });
-      if (data.lease && data.lease.status !== 'active') {
-        localStorage.removeItem('kiropoolLeaseId');
-        state.leaseId = '';
-      }
-    } else {
-      data = await postJson('/api/login', { userKey: key });
-    }
+    const data = await postJson('/api/login', { userKey: key });
     localStorage.setItem('kiropoolUserKey', key);
     setMetrics(data);
     if (!options.silent) setNotice('userStatus', '数据已刷新', 'ok');
   } catch (err) {
     if (!options.silent) setNotice('userStatus', '刷新失败：' + err.message, 'err');
+  }
+}
+
+async function syncLeaseUsage(options = {}) {
+  const key = userKey();
+  if (!key) return;
+  if (!state.leaseId) return refreshUserState(options);
+  try {
+    const data = await postJson('/api/lease/heartbeat', { userKey: key, leaseId: state.leaseId });
+    if (data.lease && data.lease.status !== 'active') {
+      localStorage.removeItem('kiropoolLeaseId');
+      state.leaseId = '';
+    }
+    localStorage.setItem('kiropoolUserKey', key);
+    setMetrics(data);
+    if (!options.silent) setNotice('userStatus', '用量已同步', 'ok');
+  } catch (err) {
+    if (err.message.includes('租用不存在') || err.message.includes('已结束')) {
+      localStorage.removeItem('kiropoolLeaseId');
+      state.leaseId = '';
+      $('lease').textContent = '-';
+      await refreshUserState({ silent: true });
+      if (!options.silent) setNotice('userStatus', '会话已结束，已切回普通额度刷新', 'ok');
+      return;
+    }
+    if (!options.silent) setNotice('userStatus', '同步失败：' + err.message, 'err');
   }
 }
 
@@ -888,7 +905,7 @@ $('downloadCredential').addEventListener('click', async () => {
   }
 });
 
-$('heartbeat').addEventListener('click', () => refreshUserState());
+$('heartbeat').addEventListener('click', () => syncLeaseUsage());
 
 $('stopLease').addEventListener('click', async () => {
   const key = userKey();
