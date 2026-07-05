@@ -9,7 +9,10 @@ const DEFAULT_SERVER_URL = 'https://kirotool.mzrodyu.icu';
 const ICON_FILE = path.join(__dirname, 'icon.png');
 const KIRO_CACHE_DIR = path.join(app.getPath('home'), '.aws', 'sso', 'cache');
 const KIRO_AUTH_FILE = path.join(KIRO_CACHE_DIR, 'kiro-auth-token.json');
+const KIRO_AGENT_STORAGE_DIR = path.join(app.getPath('appData'), 'Kiro', 'User', 'globalStorage', 'kiro.kiroagent');
+const KIRO_PROFILE_FILE = path.join(KIRO_AGENT_STORAGE_DIR, 'profile.json');
 const CLIENT_STATE_FILE = path.join(app.getPath('userData'), 'client-state.json');
+const TEMP_REFRESH_TOKEN = 'kiropool-temporary-session';
 
 let mainWindow = null;
 
@@ -31,20 +34,33 @@ function ensureDir(dir) {
 
 function writeKiroAuth(credentials) {
   ensureDir(KIRO_CACHE_DIR);
+  const provider = credentials.provider || credentials.idp || 'BuilderId';
   const normalized = {
     accessToken: credentials.accessToken || credentials.access_token || '',
-    refreshToken: credentials.refreshToken || credentials.refresh_token || '',
+    refreshToken: credentials.refreshToken || credentials.refresh_token || TEMP_REFRESH_TOKEN,
     expiresAt: credentials.expiresAt || credentials.expires_at || '',
-    authMethod: credentials.authMethod || 'social',
-    provider: credentials.provider || '',
-    profileArn: credentials.profileArn || '',
+    authMethod: credentials.authMethod || credentials.auth_method || (['Google', 'Github'].includes(provider) ? 'social' : 'IdC'),
+    provider,
+    profileArn: credentials.profileArn || credentials.profile_arn || '',
     region: credentials.region || 'us-east-1',
     clientId: credentials.clientId || '',
     clientSecret: credentials.clientSecret || '',
     csrfToken: credentials.csrfToken || ''
   };
-  fs.writeFileSync(KIRO_AUTH_FILE, JSON.stringify(normalized, null, 2), 'utf8');
+  fs.writeFileSync(KIRO_AUTH_FILE, JSON.stringify(normalized, null, 2), { encoding: 'utf8', mode: 0o600 });
+  writeKiroProfile(normalized, credentials);
   return normalized;
+}
+
+function writeKiroProfile(token, source) {
+  const arn = token.profileArn || source.profileArn || source.profile_arn || '';
+  if (!arn) return;
+  ensureDir(KIRO_AGENT_STORAGE_DIR);
+  const profile = {
+    arn,
+    name: source.profileName || source.profile_name || source.email || source.label || source.name || arn.split('/').pop() || 'KiroPool'
+  };
+  fs.writeFileSync(KIRO_PROFILE_FILE, JSON.stringify(profile, null, 2), 'utf8');
 }
 
 function readCredentialFile(filePath) {
@@ -58,6 +74,24 @@ function readCredentialFile(filePath) {
 function clearKiroAuth() {
   try {
     if (fs.existsSync(KIRO_AUTH_FILE)) fs.unlinkSync(KIRO_AUTH_FILE);
+  } catch (err) {}
+  try {
+    if (fs.existsSync(KIRO_PROFILE_FILE)) fs.unlinkSync(KIRO_PROFILE_FILE);
+  } catch (err) {}
+}
+
+function stopKiroProcesses() {
+  try {
+    if (process.platform === 'darwin') {
+      execFileSync('pkill', ['-x', 'Kiro'], { timeout: 5000 });
+      return;
+    }
+    execFileSync('powershell.exe', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      'Get-Process Kiro -ErrorAction SilentlyContinue | Stop-Process -Force'
+    ], { windowsHide: true, timeout: 8000 });
   } catch (err) {}
 }
 
@@ -271,6 +305,7 @@ ipcMain.handle('credential:import', async (event, payload = {}) => {
       filePath = res.filePaths[0];
     }
     const credentials = readCredentialFile(filePath);
+    stopKiroProcesses();
     const auth = writeKiroAuth(credentials);
     let exe = '';
     try {
@@ -301,6 +336,7 @@ ipcMain.handle('lease:start', async (event, payload) => {
     const serverUrl = payload.serverUrl || state.serverUrl;
     const userKey = payload.userKey || state.userKey;
     const data = await postJson(serverUrl, '/api/lease/start', { userKey });
+    stopKiroProcesses();
     const auth = writeKiroAuth(data.credentials);
     let exe = '';
     try {
