@@ -1,0 +1,11 @@
+node_modules/
+data/
+apps/server/data/
+dist/
+*.log
+.env
+.DS_Store
+AGENTS.md
+kiro-auth-token.json
+*refreshToken*
+*accessToken*

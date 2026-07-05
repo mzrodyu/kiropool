@@ -1,0 +1,41 @@
+{
+  "name": "@kiropool/client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "KiroPool desktop client",
+  "author": "KiroPool Contributors",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js",
+    "dist": "electron-builder --win portable --config.npmRebuild=false --config.nodeGypRebuild=false --config.buildDependenciesFromSource=false"
+  },
+  "build": {
+    "appId": "com.kiropool.client",
+    "productName": "KiroPool",
+    "directories": {
+      "output": "../../dist/client"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "KiroPool-便携版.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "33.4.11",
+    "electron-builder": "^25.1.8"
+  }
+}

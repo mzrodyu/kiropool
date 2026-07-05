@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KiroPool</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <section class="panel">
+      <div class="brand">
+        <div class="logo">KP</div>
+        <div>
+          <h1>KiroPool</h1>
+          <p>领取临时 Kiro IDE 登录凭证，按拼车额度使用。</p>
+        </div>
+      </div>
+
+      <label>
+        <span>服务器地址</span>
+        <input id="serverUrl" spellcheck="false" value="http://127.0.0.1:47831" />
+      </label>
+      <label>
+        <span>用户密钥</span>
+        <input id="userKey" spellcheck="false" type="password" placeholder="kp_xxx" />
+      </label>
+
+      <div class="actions">
+        <button id="btnLogin">检查额度</button>
+        <button id="btnStart" class="primary">启动 Kiro</button>
+        <button id="btnStop" class="danger">停止并退出登录</button>
+      </div>
+
+      <div class="status" id="status">未连接</div>
+
+      <div class="divider"></div>
+
+      <h2>导入网页凭证</h2>
+      <p class="hint">适合从网页下载了受限凭证的用户。选择 JSON 后会自动写入本机 Kiro 登录缓存，并尝试启动 Kiro。</p>
+      <div class="actions">
+        <button id="btnImportCredential" class="primary">选择凭证并启动</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>当前会话</h2>
+      <div class="metric-grid">
+        <div><span>额度</span><strong id="quota">-</strong></div>
+        <div><span>已用</span><strong id="used">-</strong></div>
+        <div><span>剩余</span><strong id="remaining">-</strong></div>
+        <div><span>租用</span><strong id="lease">-</strong></div>
+      </div>
+      <p class="hint">客户端不会显示完整刷新令牌。停止会话会清理本机 Kiro 登录缓存。</p>
+    </section>
+  </main>
+  <script src="./renderer.js"></script>
+</body>
+</html>

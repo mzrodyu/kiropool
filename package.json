@@ -1,0 +1,17 @@
+{
+  "name": "kiropool",
+  "version": "0.1.0",
+  "private": true,
+  "description": "KiroPool - Kiro IDE carpool quota manager",
+  "workspaces": [
+    "apps/server",
+    "apps/client"
+  ],
+  "scripts": {
+    "server": "npm --workspace apps/server start",
+    "client": "npm --workspace apps/client start",
+    "dev": "npm --workspace apps/server start",
+    "check": "npm --workspace apps/server run check && npm --workspace apps/client run check",
+    "dist:client": "npm --prefix apps/client run dist --workspaces=false"
+  }
+}
