@@ -10,23 +10,6 @@ permissions:
   packages: write
 
 jobs:
-  prepare-release:
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Create or update release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          cat > notes.md <<'EOF'
-          自动构建的桌面客户端。
-
-          Windows 下载 `KiroPool-portable.exe`，输入用户密钥后会自动从云端领取凭证并启动 Kiro。
-          macOS 按芯片下载 `KiroPool-mac-x64.dmg` 或 `KiroPool-mac-arm64.dmg`。
-          EOF
-          gh release view portable-latest >/dev/null 2>&1 || gh release create portable-latest --target "$GITHUB_SHA" --title "KiroPool 客户端" --notes-file notes.md
-          gh release edit portable-latest --title "KiroPool 客户端" --notes-file notes.md --latest
-
   docker:
     runs-on: ubuntu-latest
     steps:
@@ -44,7 +27,6 @@ jobs:
           tags: ghcr.io/mzrodyu/kiropool-server:latest
 
   client-windows:
-    needs: [prepare-release]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,13 +40,19 @@ jobs:
       - shell: pwsh
         run: Copy-Item -LiteralPath "dist/client/KiroPool-便携版.exe" -Destination "dist/client/KiroPool-portable.exe" -Force
       - name: Upload Windows client to release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release upload portable-latest "dist/client/KiroPool-portable.exe" --clobber
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: portable-latest
+          name: KiroPool 客户端
+          body: |
+            自动构建的桌面客户端。
+
+            Windows 下载 `KiroPool-portable.exe`，输入用户密钥后会自动从云端领取凭证并启动 Kiro。
+          make_latest: true
+          files: dist/client/KiroPool-portable.exe
 
   client-macos:
-    needs: [prepare-release]
+    needs: [client-windows]
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -76,6 +64,8 @@ jobs:
       - run: npm run check
       - run: npm --prefix apps/client run dist:mac --workspaces=false
       - name: Upload macOS clients to release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release upload portable-latest dist/client/KiroPool-mac-*.dmg --clobber
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: portable-latest
+          name: KiroPool 客户端
+          files: dist/client/KiroPool-mac-*.dmg
