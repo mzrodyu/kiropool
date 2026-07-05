@@ -47,18 +47,9 @@ npm run server
 http://localhost:47831/
 ```
 
-默认管理员密钥是：
+第一次打开会出现初始化页面。你在网页里设置管理员密钥，后面车头管理就用这个密钥。
 
-```text
-change-me-admin-token
-```
-
-正式使用请改环境变量：
-
-```powershell
-$env:KIROPOOL_ADMIN_TOKEN="换成你自己的强密钥"
-npm run server
-```
+如果你更喜欢用环境变量，也可以提前设置 `KIROPOOL_ADMIN_TOKEN`。设置了环境变量时，网页会直接认为已经初始化。
 
 ## 跨电脑使用
 
@@ -66,12 +57,13 @@ npm run server
 
 正式使用建议给服务端套一个域名，用户只需要填你的服务地址。
 
-服务端启动时建议单独设置管理员密钥：
+服务端正常启动即可：
 
 ```powershell
-$env:KIROPOOL_ADMIN_TOKEN="换成你自己的强密钥"
 npm run server
 ```
+
+第一次打开域名时，在网页里完成初始化。
 
 然后用户访问你的域名，例如：
 
@@ -84,12 +76,13 @@ https://你的域名/
 ## 车头怎么用
 
 1. 打开服务端网站。
-2. 切到“车头管理”。
-3. 填管理员密钥。
-4. 粘贴完整 Kiro JSON 凭证。
-5. 点“上传车头凭证”。
-6. 在“创建用户”里创建用户密钥和额度。
-7. 把用户密钥发给用户。
+2. 如果是第一次启动，先按页面提示设置管理员密钥。
+3. 切到“车头管理”。
+4. 填管理员密钥。
+5. 粘贴完整 Kiro JSON 凭证。
+6. 点“上传车头凭证”。
+7. 在“创建用户”里创建用户密钥和额度。
+8. 把用户密钥发给用户。
 
 完整凭证只应该由车头上传，不要直接发给用户。
 
@@ -146,7 +139,6 @@ ghcr.io/mzrodyu/kiropool-server:latest
 ```bash
 docker run -d \
   --name kiropool \
-  -e KIROPOOL_ADMIN_TOKEN="换成你自己的强密钥" \
   -p 47831:47831 \
   -v kiropool-data:/app/apps/server/data \
   ghcr.io/mzrodyu/kiropool-server:latest
@@ -155,10 +147,10 @@ docker run -d \
 如果你用 `compose.yml`：
 
 ```bash
-KIROPOOL_ADMIN_TOKEN="换成你自己的强密钥" docker compose up -d
+docker compose up -d
 ```
 
-正式给用户用时，把你的域名反代到容器端口。用户只需要填你的域名和用户密钥。
+启动后打开你的域名，按页面提示完成初始化。正式给用户用时，把你的域名反代到容器端口。用户只需要填你的域名和用户密钥。
 
 ## 开发检查
 

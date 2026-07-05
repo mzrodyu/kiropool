@@ -5,7 +5,7 @@ const crypto = require('crypto');
 
 const PORT = Number(process.env.KIROPOOL_PORT || 47831);
 const HOST = process.env.KIROPOOL_HOST || '127.0.0.1';
-const ADMIN_TOKEN = process.env.KIROPOOL_ADMIN_TOKEN || 'change-me-admin-token';
+const ADMIN_TOKEN = process.env.KIROPOOL_ADMIN_TOKEN || '';
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const KIRO_REFRESH_URL = 'https://prod.us-east-1.auth.desktop.kiro.dev/refreshToken';
@@ -29,12 +29,29 @@ const WEB_HTML = `<!doctype html>
       <div class="server-pill" id="serverPill">服务端</div>
     </section>
 
-    <nav class="tabs" aria-label="页面切换">
+    <section class="setup card hidden" id="setupPanel">
+      <h2>首次初始化</h2>
+      <p class="hint">先设置一个管理员密钥。以后车头管理、创建用户、上传凭证都用它。</p>
+      <label>
+        <span>管理员密钥</span>
+        <input id="setupAdminToken" type="password" spellcheck="false" placeholder="至少 8 位，自己记好" />
+      </label>
+      <label>
+        <span>确认管理员密钥</span>
+        <input id="setupAdminTokenConfirm" type="password" spellcheck="false" placeholder="再输一遍" />
+      </label>
+      <div class="actions">
+        <button id="initializeServer" class="primary">完成初始化</button>
+      </div>
+      <div class="notice" id="setupStatus">初始化只需要做一次。</div>
+    </section>
+
+    <nav class="tabs hidden" id="tabs" aria-label="页面切换">
       <button class="tab active" data-tab="user">用户下载</button>
       <button class="tab" data-tab="owner">车头管理</button>
     </nav>
 
-    <section class="grid active" id="userPanel">
+    <section class="grid active hidden" id="userPanel">
       <div class="card">
         <h2>下载临时凭证</h2>
         <label>
@@ -64,7 +81,7 @@ const WEB_HTML = `<!doctype html>
       </div>
     </section>
 
-    <section class="grid" id="ownerPanel">
+    <section class="grid hidden" id="ownerPanel">
       <div class="card">
         <h2>上传车头凭证</h2>
         <label>
@@ -199,6 +216,14 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #eceef2;
+  margin-bottom: 18px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.setup {
   margin-bottom: 18px;
 }
 
@@ -397,6 +422,20 @@ const state = {
 $('serverPill').textContent = location.origin;
 $('userKey').value = state.userKey;
 
+function showMainApp() {
+  $('setupPanel').classList.add('hidden');
+  $('tabs').classList.remove('hidden');
+  $('userPanel').classList.remove('hidden');
+  $('ownerPanel').classList.add('hidden');
+}
+
+function showSetup() {
+  $('setupPanel').classList.remove('hidden');
+  $('tabs').classList.add('hidden');
+  $('userPanel').classList.add('hidden');
+  $('ownerPanel').classList.add('hidden');
+}
+
 function setNotice(id, text, kind) {
   const el = $(id);
   el.textContent = text;
@@ -417,6 +456,15 @@ async function postJson(pathname, body, headers) {
     headers: Object.assign({ 'content-type': 'application/json', accept: 'application/json' }, headers || {}),
     body: JSON.stringify(body || {})
   });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data || data.ok === false) {
+    throw new Error(data && data.error ? data.error : '请求失败');
+  }
+  return data;
+}
+
+async function getJson(pathname) {
+  const res = await fetch(pathname, { headers: { accept: 'application/json' } });
   const data = await res.json().catch(() => null);
   if (!res.ok || !data || data.ok === false) {
     throw new Error(data && data.error ? data.error : '请求失败');
@@ -454,6 +502,40 @@ document.querySelectorAll('.tab').forEach(button => {
     $(button.dataset.tab + 'Panel').classList.add('active');
   });
 });
+
+$('initializeServer').addEventListener('click', async () => {
+  const adminToken = $('setupAdminToken').value.trim();
+  const confirm = $('setupAdminTokenConfirm').value.trim();
+  if (adminToken.length < 8) return setNotice('setupStatus', '管理员密钥至少 8 位', 'err');
+  if (adminToken !== confirm) return setNotice('setupStatus', '两次输入不一致', 'err');
+  try {
+    setNotice('setupStatus', '正在初始化...');
+    await postJson('/api/setup', { adminToken });
+    $('adminToken').value = adminToken;
+    localStorage.setItem('kiropoolAdminToken', adminToken);
+    setNotice('ownerStatus', '初始化完成，可以上传车头凭证了。', 'ok');
+    showMainApp();
+    document.querySelector('[data-tab="owner"]').click();
+  } catch (err) {
+    setNotice('setupStatus', '初始化失败：' + err.message, 'err');
+  }
+});
+
+async function loadSetupState() {
+  try {
+    const data = await getJson('/api/setup');
+    if (data.initialized) {
+      showMainApp();
+      const savedAdminToken = localStorage.getItem('kiropoolAdminToken') || '';
+      if (savedAdminToken) $('adminToken').value = savedAdminToken;
+      return;
+    }
+    showSetup();
+  } catch (err) {
+    showSetup();
+    setNotice('setupStatus', '读取初始化状态失败：' + err.message, 'err');
+  }
+}
 
 $('checkQuota').addEventListener('click', async () => {
   const key = userKey();
@@ -526,6 +608,7 @@ $('uploadCredential').addEventListener('click', async () => {
       name: $('accountName').value.trim() || 'kiro-account',
       credentials
     }, { 'x-admin-token': adminToken });
+    localStorage.setItem('kiropoolAdminToken', adminToken);
     $('credentialJson').value = '';
     setNotice('ownerStatus', '车头凭证已上传：' + data.account.name, 'ok');
   } catch (err) {
@@ -544,11 +627,14 @@ $('createUser').addEventListener('click', async () => {
     };
     setNotice('createUserStatus', '正在创建用户...');
     const data = await postJson('/admin/users', body, { 'x-admin-token': adminToken });
+    localStorage.setItem('kiropoolAdminToken', adminToken);
     setNotice('createUserStatus', '用户已创建，密钥：' + data.user.key, 'ok');
   } catch (err) {
     setNotice('createUserStatus', '创建失败：' + err.message, 'err');
   }
-});`;
+});
+
+loadSetupState();`;
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -566,6 +652,11 @@ function defaultDb() {
   return {
     version: 1,
     createdAt: nowIso(),
+    settings: {
+      adminTokenHash: '',
+      adminTokenSalt: '',
+      initializedAt: ''
+    },
     accounts: [],
     users: [],
     leases: [],
@@ -580,7 +671,13 @@ function loadDb() {
     saveDb(db);
     return db;
   }
-  return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  db.settings = db.settings || { adminTokenHash: '', adminTokenSalt: '', initializedAt: '' };
+  db.accounts = db.accounts || [];
+  db.users = db.users || [];
+  db.leases = db.leases || [];
+  db.events = db.events || [];
+  return db;
 }
 
 function saveDb(db) {
@@ -611,6 +708,27 @@ function publicDb(db) {
     })),
     leases: db.leases
   };
+}
+
+function hashAdminToken(token, salt = crypto.randomBytes(16).toString('hex')) {
+  const hash = crypto.scryptSync(token, salt, 64).toString('hex');
+  return { salt, hash };
+}
+
+function safeEqualHex(a, b) {
+  const left = Buffer.from(a || '', 'hex');
+  const right = Buffer.from(b || '', 'hex');
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
+function hasAdminConfigured(db) {
+  return Boolean(ADMIN_TOKEN || db.settings.adminTokenHash);
+}
+
+function verifyStoredAdminToken(db, token) {
+  if (!db.settings.adminTokenHash || !db.settings.adminTokenSalt || !token) return false;
+  const candidate = hashAdminToken(token, db.settings.adminTokenSalt);
+  return safeEqualHex(candidate.hash, db.settings.adminTokenHash);
 }
 
 function sendJson(res, status, body) {
@@ -650,8 +768,10 @@ function readBody(req) {
   });
 }
 
-function requireAdmin(req) {
-  return req.headers['x-admin-token'] === ADMIN_TOKEN;
+function requireAdmin(req, db) {
+  const token = req.headers['x-admin-token'] || '';
+  if (ADMIN_TOKEN) return token === ADMIN_TOKEN;
+  return verifyStoredAdminToken(db, token);
 }
 
 function pickCredentials(input) {
@@ -783,8 +903,31 @@ async function route(req, res) {
       return sendJson(res, 200, { ok: true, name: 'KiroPool', at: nowIso() });
     }
 
+    if (req.method === 'GET' && url.pathname === '/api/setup') {
+      return sendJson(res, 200, {
+        ok: true,
+        initialized: hasAdminConfigured(db),
+        source: ADMIN_TOKEN ? 'env' : (db.settings.adminTokenHash ? 'database' : 'none')
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/setup') {
+      if (hasAdminConfigured(db)) return sendJson(res, 409, { ok: false, error: '服务端已初始化' });
+      const body = await readBody(req);
+      const adminToken = String(body.adminToken || '').trim();
+      if (adminToken.length < 8) return sendJson(res, 400, { ok: false, error: '管理员密钥至少 8 位' });
+      const hashed = hashAdminToken(adminToken);
+      db.settings.adminTokenSalt = hashed.salt;
+      db.settings.adminTokenHash = hashed.hash;
+      db.settings.initializedAt = nowIso();
+      db.events.unshift({ id: uid('evt_'), type: 'setup.initialized', at: nowIso() });
+      saveDb(db);
+      return sendJson(res, 200, { ok: true, initialized: true });
+    }
+
     if (url.pathname.startsWith('/admin/')) {
-      if (!requireAdmin(req)) return sendJson(res, 401, { ok: false, error: '管理员密钥无效' });
+      if (!hasAdminConfigured(db)) return sendJson(res, 428, { ok: false, error: '服务端尚未初始化' });
+      if (!requireAdmin(req, db)) return sendJson(res, 401, { ok: false, error: '管理员密钥无效' });
     }
 
     if (req.method === 'GET' && url.pathname === '/admin/state') {
