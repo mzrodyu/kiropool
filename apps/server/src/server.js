@@ -96,7 +96,9 @@ const WEB_HTML = `<!doctype html>
           <span>完整 Kiro JSON 凭证</span>
           <textarea id="credentialJson" spellcheck="false" placeholder="粘贴包含刷新令牌 / 访问令牌的完整 JSON"></textarea>
         </label>
+        <input class="file-input" id="credentialFile" type="file" accept=".json,application/json" />
         <div class="actions">
+          <button id="chooseCredentialFile">选择 JSON 文件</button>
           <button id="uploadCredential" class="primary">上传车头凭证</button>
         </div>
         <div class="notice" id="ownerStatus">完整刷新令牌只保存在服务端。</div>
@@ -221,6 +223,10 @@ h2 {
 
 .hidden {
   display: none !important;
+}
+
+.file-input {
+  display: none;
 }
 
 .setup {
@@ -523,6 +529,27 @@ $('initializeServer').addEventListener('click', async () => {
     document.querySelector('[data-tab="owner"]').click();
   } catch (err) {
     setNotice('setupStatus', '初始化失败：' + err.message, 'err');
+  }
+});
+
+$('chooseCredentialFile').addEventListener('click', () => {
+  $('credentialFile').click();
+});
+
+$('credentialFile').addEventListener('change', async () => {
+  const file = $('credentialFile').files && $('credentialFile').files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    JSON.parse(text);
+    $('credentialJson').value = text;
+    if (!$('accountName').value.trim()) {
+      $('accountName').value = file.name.replace(/\\.json$/i, '');
+    }
+    setNotice('ownerStatus', '已读取文件：' + file.name, 'ok');
+  } catch (err) {
+    $('credentialFile').value = '';
+    setNotice('ownerStatus', '文件不是合法 JSON：' + err.message, 'err');
   }
 });
 
