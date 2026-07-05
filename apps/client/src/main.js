@@ -181,17 +181,9 @@ function createChineseMenu() {
       submenu: [
         {
           label: '关于 KiroPool',
-          click: () => dialog.showMessageBox(mainWindow, {
-            type: 'info',
-            title: '关于 KiroPool',
-            message: 'KiroPool',
-            detail: `作者：Catie / mzrodyu\n仓库：${REPO_URL}\n\nKiro IDE 拼车额度管理客户端`,
-            buttons: ['打开仓库', '关闭'],
-            defaultId: 0,
-            cancelId: 1
-          }).then(result => {
-            if (result.response === 0) shell.openExternal(REPO_URL);
-          })
+          click: () => {
+            if (mainWindow) mainWindow.webContents.send('about:show');
+          }
         }
       ]
     }
@@ -263,17 +255,7 @@ ipcMain.handle('window:close', () => {
   if (mainWindow) mainWindow.close();
 });
 
-ipcMain.handle('app:about', () => dialog.showMessageBox(mainWindow, {
-  type: 'info',
-  title: '关于 KiroPool',
-  message: 'KiroPool',
-  detail: `作者：Catie / mzrodyu\n仓库：${REPO_URL}\n\nKiro IDE 拼车额度管理客户端`,
-  buttons: ['打开仓库', '关闭'],
-  defaultId: 0,
-  cancelId: 1
-}).then(result => {
-  if (result.response === 0) shell.openExternal(REPO_URL);
-}));
+ipcMain.handle('app:openRepo', () => shell.openExternal(REPO_URL));
 
 ipcMain.handle('credential:import', async (event, payload = {}) => {
   try {

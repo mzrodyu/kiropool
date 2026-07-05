@@ -127,6 +127,14 @@ async function pickKiroExe() {
   setStatus('Kiro 路径已设置：' + res.exe);
 }
 
+function openAbout() {
+  $('aboutModal').classList.remove('hidden');
+}
+
+function closeAbout() {
+  $('aboutModal').classList.add('hidden');
+}
+
 $('btnLogin').addEventListener('click', login);
 $('btnStart').addEventListener('click', startLease);
 $('btnStop').addEventListener('click', stopLease);
@@ -135,6 +143,14 @@ $('btnPickKiro').addEventListener('click', pickKiroExe);
 $('winClose').addEventListener('click', () => api.closeWindow());
 $('winMinimize').addEventListener('click', () => api.minimizeWindow());
 $('winMaximize').addEventListener('click', () => api.maximizeWindow());
-$('btnAbout').addEventListener('click', () => api.showAbout());
+$('btnAbout').addEventListener('click', openAbout);
+$('aboutClose').addEventListener('click', closeAbout);
+$('aboutOk').addEventListener('click', closeAbout);
+$('aboutBackdrop').addEventListener('click', closeAbout);
+$('aboutRepo').addEventListener('click', () => api.openRepo());
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeAbout();
+});
+api.onShowAbout(openAbout);
 
 loadState();

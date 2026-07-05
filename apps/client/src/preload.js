@@ -12,5 +12,6 @@ contextBridge.exposeInMainWorld('kiropool', {
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   closeWindow: () => ipcRenderer.invoke('window:close'),
-  showAbout: () => ipcRenderer.invoke('app:about')
+  openRepo: () => ipcRenderer.invoke('app:openRepo'),
+  onShowAbout: (callback) => ipcRenderer.on('about:show', callback)
 });

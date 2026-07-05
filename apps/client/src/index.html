@@ -67,6 +67,38 @@
       <p class="hint">客户端不会显示完整刷新令牌。停止会话会清理本机 Kiro 登录缓存。</p>
     </section>
   </main>
+
+  <div id="aboutModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+    <div class="modal-backdrop" id="aboutBackdrop"></div>
+    <section class="about-card">
+      <button id="aboutClose" class="icon-close" aria-label="关闭">×</button>
+      <div class="about-hero">
+        <img class="about-logo" src="./icon.png" alt="" />
+        <div>
+          <p class="about-kicker">KiroPool</p>
+          <h2 id="aboutTitle">关于 KiroPool</h2>
+        </div>
+      </div>
+      <div class="about-list">
+        <div>
+          <span>作者</span>
+          <strong>Catie / mzrodyu</strong>
+        </div>
+        <div>
+          <span>仓库</span>
+          <strong>github.com/mzrodyu/kiropool</strong>
+        </div>
+        <div>
+          <span>用途</span>
+          <strong>Kiro IDE 拼车额度管理客户端</strong>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="aboutRepo" class="primary">打开仓库</button>
+        <button id="aboutOk">关闭</button>
+      </div>
+    </section>
+  </div>
   <script src="./renderer.js"></script>
 </body>
 </html>
