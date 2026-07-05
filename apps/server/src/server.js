@@ -677,17 +677,63 @@ function renderUsers(users) {
   }).join('');
 }
 
-async function loadAdminState() {
+async function loadAdminState(options = {}) {
   const token = adminToken();
-  if (!token) return setNotice('ownerStatus', '请先填写管理员密钥', 'err');
+  if (!token) {
+    if (!options.silent) setNotice('ownerStatus', '请先填写管理员密钥', 'err');
+    return;
+  }
   try {
     const data = await getJson('/admin/state', { 'x-admin-token': token });
     localStorage.setItem('kiropoolAdminToken', token);
     renderAccounts(data.data.accounts || []);
     renderUsers(data.data.users || []);
-    setNotice('ownerStatus', '车头凭证列表已刷新', 'ok');
+    if (!options.silent) setNotice('ownerStatus', '数据已刷新', 'ok');
   } catch (err) {
-    setNotice('ownerStatus', '刷新失败：' + err.message, 'err');
+    if (!options.silent) setNotice('ownerStatus', '刷新失败：' + err.message, 'err');
+  }
+}
+
+function activeTab() {
+  const active = document.querySelector('.tab.active');
+  return active ? active.dataset.tab : 'user';
+}
+
+async function refreshUserState(options = {}) {
+  const key = userKey();
+  if (!key) return;
+  try {
+    let data = null;
+    if (state.leaseId) {
+      data = await postJson('/api/lease/heartbeat', { userKey: key, leaseId: state.leaseId });
+      if (data.lease && data.lease.status !== 'active') {
+        localStorage.removeItem('kiropoolLeaseId');
+        state.leaseId = '';
+      }
+    } else {
+      data = await postJson('/api/login', { userKey: key });
+    }
+    localStorage.setItem('kiropoolUserKey', key);
+    setMetrics(data);
+    if (!options.silent) setNotice('userStatus', '数据已刷新', 'ok');
+  } catch (err) {
+    if (!options.silent) setNotice('userStatus', '刷新失败：' + err.message, 'err');
+  }
+}
+
+async function syncUsage(options = {}) {
+  const token = adminToken();
+  if (!token) {
+    if (!options.silent) setNotice('ownerStatus', '请先填写管理员密钥', 'err');
+    return;
+  }
+  try {
+    if (!options.silent) setNotice('ownerStatus', '正在同步车头额度...');
+    const data = await postJson('/admin/sync-usage', {}, { 'x-admin-token': token });
+    if (!options.silent) setNotice('ownerStatus', '同步完成：成功 ' + data.synced + '，失败 ' + data.failed, 'ok');
+    await loadAdminState({ silent: true });
+  } catch (err) {
+    if (!options.silent) setNotice('ownerStatus', '同步失败：' + err.message, 'err');
   }
 }
 
@@ -702,6 +748,11 @@ document.querySelectorAll('.tab').forEach(button => {
     const panel = $(button.dataset.tab + 'Panel');
     panel.classList.remove('hidden');
     panel.classList.add('active');
+    if (button.dataset.tab === 'owner') {
+      loadAdminState({ silent: true });
+    } else {
+      refreshUserState({ silent: true });
+    }
   });
 });
 
@@ -744,21 +795,9 @@ $('credentialFile').addEventListener('change', async () => {
   }
 });
 
-$('refreshAccounts').addEventListener('click', loadAdminState);
-$('refreshUsers').addEventListener('click', loadAdminState);
-
-$('syncUsage').addEventListener('click', async () => {
-  const token = adminToken();
-  if (!token) return setNotice('ownerStatus', '请先填写管理员密钥', 'err');
-  try {
-    setNotice('ownerStatus', '正在同步车头额度...');
-    const data = await postJson('/admin/sync-usage', {}, { 'x-admin-token': token });
-    setNotice('ownerStatus', '同步完成：成功 ' + data.synced + '，失败 ' + data.failed, 'ok');
-    await loadAdminState();
-  } catch (err) {
-    setNotice('ownerStatus', '同步失败：' + err.message, 'err');
-  }
-});
+$('refreshAccounts').addEventListener('click', () => loadAdminState());
+$('refreshUsers').addEventListener('click', () => loadAdminState());
+$('syncUsage').addEventListener('click', () => syncUsage());
 
 $('accountList').addEventListener('click', async event => {
   const button = event.target.closest('button[data-action]');
@@ -829,19 +868,7 @@ async function loadSetupState() {
   }
 }
 
-$('checkQuota').addEventListener('click', async () => {
-  const key = userKey();
-  if (!key) return setNotice('userStatus', '请填写用户密钥', 'err');
-  try {
-    setNotice('userStatus', '正在检查额度...');
-    const data = await postJson('/api/login', { userKey: key });
-    localStorage.setItem('kiropoolUserKey', key);
-    setMetrics(data);
-    setNotice('userStatus', '额度检查成功', 'ok');
-  } catch (err) {
-    setNotice('userStatus', '检查失败：' + err.message, 'err');
-  }
-});
+$('checkQuota').addEventListener('click', () => refreshUserState());
 
 $('downloadCredential').addEventListener('click', async () => {
   const key = userKey();
@@ -861,17 +888,7 @@ $('downloadCredential').addEventListener('click', async () => {
   }
 });
 
-$('heartbeat').addEventListener('click', async () => {
-  const key = userKey();
-  if (!key || !state.leaseId) return setNotice('userStatus', '没有可同步的会话', 'err');
-  try {
-    const data = await postJson('/api/lease/heartbeat', { userKey: key, leaseId: state.leaseId });
-    setMetrics(data);
-    setNotice('userStatus', '用量已同步', 'ok');
-  } catch (err) {
-    setNotice('userStatus', '同步失败：' + err.message, 'err');
-  }
-});
+$('heartbeat').addEventListener('click', () => refreshUserState());
 
 $('stopLease').addEventListener('click', async () => {
   const key = userKey();
@@ -928,7 +945,38 @@ $('createUser').addEventListener('click', async () => {
   }
 });
 
-loadSetupState();`;
+function startAutoRefresh() {
+  if (activeTab() === 'owner') {
+    loadAdminState({ silent: true });
+  } else {
+    refreshUserState({ silent: true });
+  }
+
+  setInterval(() => {
+    if (document.hidden || $('setupPanel').classList.contains('hidden') === false) return;
+    if (activeTab() === 'owner') {
+      loadAdminState({ silent: true });
+    } else {
+      refreshUserState({ silent: true });
+    }
+  }, 10000);
+
+  setInterval(() => {
+    if (document.hidden || $('setupPanel').classList.contains('hidden') === false) return;
+    if (activeTab() === 'owner') syncUsage({ silent: true });
+  }, 60000);
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    if (activeTab() === 'owner') {
+      loadAdminState({ silent: true });
+    } else {
+      refreshUserState({ silent: true });
+    }
+  });
+}
+
+loadSetupState().then(startAutoRefresh);`;
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
