@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -42,3 +42,14 @@ jobs:
           name: KiroPool-portable-windows
           path: dist/client/KiroPool-便携版.exe
           if-no-files-found: error
+      - uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: portable-latest
+          name: KiroPool 便携版
+          body: |
+            自动构建的 Windows 便携版。
+
+            下载 `KiroPool-便携版.exe`，打开后可导入网页下载的拼车用户凭证并启动 Kiro。
+          make_latest: true
+          files: dist/client/KiroPool-便携版.exe
