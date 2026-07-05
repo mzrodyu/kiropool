@@ -1,0 +1,10 @@
+.git
+.github
+node_modules
+apps/*/node_modules
+apps/server/data
+dist
+*.log
+.env
+AGENTS.md
+kiro-auth-token.json

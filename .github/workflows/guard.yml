@@ -21,7 +21,8 @@ jobs:
           $forbidden = @(
             'apps/server/data',
             'dist',
-            '.env'
+            '.env',
+            'AGENTS.md'
           )
           $tracked = git ls-files
           foreach ($path in $forbidden) {

@@ -131,6 +131,35 @@ dist/client/KiroPool-便携版.exe
 
 `dist/` 是本地构建产物，不要提交到 Git。
 
+GitHub Actions 也会自动打包便携版。打开仓库的 Actions 页面，进入最新一次 `Build`，下载 `KiroPool-portable-windows` artifact 即可。
+
+## Docker 部署测试
+
+服务端镜像会由 GitHub Actions 自动构建并推送到 GHCR：
+
+```text
+ghcr.io/mzrodyu/kiropool-server:latest
+```
+
+最简单的测试方式：
+
+```bash
+docker run -d \
+  --name kiropool \
+  -e KIROPOOL_ADMIN_TOKEN="换成你自己的强密钥" \
+  -p 47831:47831 \
+  -v kiropool-data:/app/apps/server/data \
+  ghcr.io/mzrodyu/kiropool-server:latest
+```
+
+如果你用 `compose.yml`：
+
+```bash
+KIROPOOL_ADMIN_TOKEN="换成你自己的强密钥" docker compose up -d
+```
+
+正式给用户用时，把你的域名反代到容器端口。用户只需要填你的域名和用户密钥。
+
 ## 开发检查
 
 提交前跑：

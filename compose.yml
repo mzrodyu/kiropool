@@ -1,0 +1,18 @@
+services:
+  server:
+    image: ghcr.io/mzrodyu/kiropool-server:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      KIROPOOL_HOST: 0.0.0.0
+      KIROPOOL_PORT: 47831
+      KIROPOOL_ADMIN_TOKEN: ${KIROPOOL_ADMIN_TOKEN:?set KIROPOOL_ADMIN_TOKEN}
+    ports:
+      - "47831:47831"
+    volumes:
+      - kiropool-data:/app/apps/server/data
+    restart: unless-stopped
+
+volumes:
+  kiropool-data:
