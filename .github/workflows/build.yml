@@ -70,28 +70,17 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: release-assets
-      - uses: actions/github-script@v7
+      - uses: ncipollo/release-action@v1
         with:
-          script: |
-            const { owner, repo } = context.repo;
-            try {
-              const release = await github.rest.repos.getReleaseByTag({ owner, repo, tag: 'portable-latest' });
-              for (const asset of release.data.assets) {
-                await github.rest.repos.deleteReleaseAsset({ owner, repo, asset_id: asset.id });
-              }
-            } catch (error) {
-              if (error.status !== 404) throw error;
-            }
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: portable-latest
+          tag: portable-latest
           name: KiroPool 客户端
           body: |
             自动构建的桌面客户端。
 
-            Windows 下载 `KiroPool-portable.exe`。
+            Windows 下载 `KiroPool-portable.exe`，输入用户密钥后会自动从云端领取凭证并启动 Kiro。
             macOS 按芯片下载 `KiroPool-mac-x64.dmg` 或 `KiroPool-mac-arm64.dmg`。
-          make_latest: true
-          files: |
-            release-assets/KiroPool-portable-windows/KiroPool-portable.exe
-            release-assets/KiroPool-macos/KiroPool-mac-*.dmg
+          artifacts: release-assets/KiroPool-portable-windows/KiroPool-portable.exe,release-assets/KiroPool-macos/KiroPool-mac-*.dmg
+          allowUpdates: true
+          removeArtifacts: true
+          replacesArtifacts: true
+          makeLatest: true
